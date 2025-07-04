@@ -186,7 +186,7 @@ export default function DAOManagement() {
                 >
                   DAO
                 </a>
-                <a
+                {/* <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
@@ -195,7 +195,7 @@ export default function DAOManagement() {
                   className="text-sm text-gray-900 hover:text-campus-blue transition-colors cursor-pointer"
                 >
                   Contributions
-                </a>
+                </a> */}
               </nav>
             </div>
 

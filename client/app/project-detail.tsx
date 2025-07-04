@@ -119,7 +119,7 @@ export default function ProjectDetail() {
                 >
                   DAO
                 </a>
-                <a
+                {/* <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
@@ -128,7 +128,7 @@ export default function ProjectDetail() {
                   className="text-sm text-gray-900 hover:text-campus-blue transition-colors cursor-pointer"
                 >
                   Contributions
-                </a>
+                </a> */}
               </nav>
             </div>
 

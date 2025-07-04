@@ -1,8 +1,10 @@
 import { ChevronDown, Bell } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useLogout, useSignerStatus } from "@account-kit/react";
+import { parseAbi, encodeFunctionData } from "viem";
+import { useSmartAccountClient, useSendUserOperation } from "@account-kit/react";
 
 const createdProjectsData = [
   {
@@ -105,9 +107,19 @@ const ProjectCard = ({
   );
 };
 
+const campusDAO = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
+
+const campusDAOAbi = parseAbi([
+  "function createProject(string memory title, string memory description, string memory expectations, string memory techStack, string memory githubRepo, uint256 maxMembers) public",
+  "function getProjectInfo(uint256 projectId) public view returns (uint256 id, string memory title, string memory description, string memory expectations, string memory techStack, string memory githubRepo, address owner, address[] memory members, bool isActive, uint256 createdAt, uint256 maxMembers)",
+  "function getUserProjects(address user) public view returns(uint256[] memory)"
+]);
+
 export default function YourWorks() {
   const { logout } = useLogout();
   const { isConnected } = useSignerStatus();
+
+  const { client, address } = useSmartAccountClient({ type: "LightAccount" });
   
   const [activeTab, setActiveTab] = useState<"created" | "participated">(
     "created",
@@ -117,6 +129,24 @@ export default function YourWorks() {
     activeTab === "created" ? createdProjectsData : participatedProjectsData;
 
   const navigate = useNavigate();
+
+  useEffect(() => {
+    (async () => {
+      if (!client || !address) return; 
+      try {
+        const projects = await client.readContract({
+          address: campusDAO,
+          abi: campusDAOAbi,
+          functionName: "getUserProjects",
+          args: [address as string],
+        });
+        console.log(projects);
+      } catch (error) {
+        console.error("Error fetching projects:", error);
+      }
+      
+    })(); 
+  }, [client, address]);
 
   const handleDashboardClick = () => {
     navigate("/dashboard");
@@ -201,7 +231,7 @@ export default function YourWorks() {
                 >
                   DAO
                 </a>
-                <a
+                {/* <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
@@ -210,7 +240,7 @@ export default function YourWorks() {
                   className="text-sm text-gray-900 hover:text-campus-blue transition-colors cursor-pointer"
                 >
                   Contributions
-                </a>
+                </a> */}
               </nav>
             </div>
 

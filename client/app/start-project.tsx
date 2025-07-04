@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useLogout, useSignerStatus } from "@account-kit/react";
-
+import { parseAbi, encodeFunctionData } from "viem";
+import {
+  useSendUserOperation,
+  useSmartAccountClient,
+} from "@account-kit/react";
 interface TeamMember {
   id: string;
   email: string;
@@ -10,11 +14,23 @@ interface TeamMember {
   avatar?: string;
 }
 
+const campusDAO = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
+
+const campusDAOAbi = parseAbi([
+  "function createProject(string memory title, string memory description, string memory expectations, string memory techStack, string memory githubRepo, uint256 maxMembers) public",
+]);
+
 export default function StartProject() {
   const navigate = useNavigate();
 
   const { logout } = useLogout();
   const { isConnected } = useSignerStatus();
+
+  const { client } = useSmartAccountClient({});
+
+  const { sendUserOperationAsync, isSendingUserOperation } = useSendUserOperation({
+    client,
+  });
 
   const [formData, setFormData] = useState({
     ownerName: "",
@@ -24,7 +40,7 @@ export default function StartProject() {
     techStack: "",
     repositoryLink: "",
     maxMembers: "",
-    governanceMode: "solo", // 'solo' or 'snapshot'
+    governanceMode: "solo", 
   });
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
@@ -68,11 +84,34 @@ export default function StartProject() {
     navigate("/yourworks");
   };
 
-  const handleCreateProject = () => {
-    // Handle project creation logic here
-    console.log("Creating project with data:", formData);
-    // Navigate back to your works page after creation
-    navigate("/yourworks");
+  async function createProjectOnChain() {
+    try {
+      const res = await sendUserOperationAsync({
+        uo: {
+          target: campusDAO,
+          data: encodeFunctionData({
+            abi: campusDAOAbi,
+            functionName: "createProject",
+            args: [
+              formData.projectTitle,
+              formData.description,
+              formData.clearExpectations,
+              formData.techStack,
+              formData.repositoryLink,
+              BigInt(formData.maxMembers),
+            ],
+          }),
+        },
+      });
+      console.log(res)
+      navigate("/yourworks");
+    } catch (error) {
+      console.error("Error creating project on chain:", error);
+    }
+  }
+
+  const handleSubmit = async () => {
+    await createProjectOnChain();
   };
 
   const handleDashboardClick = () => {
@@ -150,7 +189,7 @@ export default function StartProject() {
                 >
                   DAO
                 </a>
-                <a
+                {/* <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
@@ -159,7 +198,7 @@ export default function StartProject() {
                   className="text-sm text-gray-900 hover:text-campus-blue transition-colors cursor-pointer"
                 >
                   Contributions
-                </a>
+                </a> */}
               </nav>
             </div>
 
@@ -192,21 +231,6 @@ export default function StartProject() {
 
           {/* Form Fields */}
           <div className="space-y-6">
-            {/* Owner Name */}
-            <div className="max-w-lg px-4">
-              <div className="pb-2">
-                <label className="block text-base font-medium text-gray-900">
-                  Owner Name
-                </label>
-              </div>
-              <input
-                type="text"
-                placeholder="Enter your name"
-                value={formData.ownerName}
-                onChange={(e) => handleInputChange("ownerName", e.target.value)}
-                className="w-full h-14 px-4 border border-gray-300 rounded-xl bg-white text-base placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-campus-blue focus:border-transparent"
-              />
-            </div>
 
             {/* Project Title */}
             <div className="max-w-lg px-4">
@@ -386,7 +410,7 @@ export default function StartProject() {
             </div>
 
             {/* Team Members Section */}
-            <div className="px-4 pb-2">
+            {/* <div className="px-4 pb-2">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-bold text-gray-900">
                   Team Members
@@ -398,10 +422,10 @@ export default function StartProject() {
                   Add Member
                 </button>
               </div>
-            </div>
+            </div> */}
 
             {/* Team Members List */}
-            <div className="px-4 space-y-3">
+            {/* <div className="px-4 space-y-3">
               {teamMembers.map((member) => (
                 <div
                   key={member.id}
@@ -429,7 +453,7 @@ export default function StartProject() {
                   </button>
                 </div>
               ))}
-            </div>
+            </div> */}
 
             {/* Action Buttons */}
             <div className="flex justify-end items-center gap-3 px-4 py-3">
@@ -440,10 +464,11 @@ export default function StartProject() {
                 Cancel
               </button>
               <button
-                onClick={handleCreateProject}
+                onClick={handleSubmit}
+                disabled={isSendingUserOperation}
                 className="px-4 py-2 bg-campus-blue text-white text-sm font-bold rounded-2xl hover:bg-blue-600 transition-colors"
               >
-                Submit Proposal
+                {isSendingUserOperation ? "Submitting..." : "Submit Proposal"}
               </button>
             </div>
           </div>

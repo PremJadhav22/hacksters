@@ -87,11 +87,11 @@ export default function MyProjectDetail() {
   const project =
     myProjectData[id as keyof typeof myProjectData] || myProjectData[1];
 
-  const handleExploreClick = () => {
+  const handleExplorerClick = () => {
     navigate("/projectexplorer");
   };
 
-  const handleBuildClick = () => {
+  const handleYourWorksClick = () => {
     navigate("/yourworks");
   };
 
@@ -159,7 +159,7 @@ export default function MyProjectDetail() {
                 >
                   DAO
                 </a>
-                <a
+                {/* <a
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
@@ -168,7 +168,7 @@ export default function MyProjectDetail() {
                   className="text-sm text-gray-900 hover:text-campus-blue transition-colors cursor-pointer"
                 >
                   Contributions
-                </a>
+                </a> */}
               </nav>
             </div>
 
