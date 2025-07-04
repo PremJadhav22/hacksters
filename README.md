@@ -48,20 +48,16 @@ CampusDAO is a platform designed to streamline **contribution tracking, project 
 
 ### Installation
 
-    ```
-
     git clone https://github.com/PremJadhav22/hacksters.git
     cd hacksters
     cd client
     npm install
-    ```
+    
 
 ### Running the App
 
-    ```
-
     npm run dev
-    ```
+
 The app will be available at `http://localhost:3000`.
 
 ---
