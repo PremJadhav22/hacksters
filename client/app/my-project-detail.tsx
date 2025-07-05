@@ -1,80 +1,30 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { Bell, Calendar } from "lucide-react";
+import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { useLogout, useSignerStatus } from "@account-kit/react";
+import { parseAbi, encodeFunctionData } from "viem";
+import {
+  useSmartAccountClient,
+  useSendUserOperation,
+} from "@account-kit/react";
 
 // Mock project data - in a real app, this would come from an API
 const myProjectData = {
   1: {
-    title: "CampusConnect",
+    title: "Spriggle",
     description:
-      "CampusConnect aims to streamline access to campus information, offering a centralized hub for events, resources, and announcements. This project seeks to enhance student engagement and improve communication within the university community.",
-    expectations:
-      "We expect contributors to actively participate in development sprints, adhere to coding standards, and collaborate effectively within the team. Regular updates and commitment to deadlines are crucial for the project's success.",
-    techStack:
-      "The project will utilize React for the frontend, Node.js with Express for the backend, and MongoDB for the database. Familiarity with these technologies is preferred, but we welcome contributors eager to learn and adapt.",
-    timeline: [
-      {
-        title: "Project Kickoff",
-        date: "June 1, 2024",
-      },
-      {
-        title: "Midterm Review",
-        date: "July 15, 2024",
-      },
-      {
-        title: "Final Release",
-        date: "August 30, 2024",
-      },
-    ],
-  },
-  2: {
-    title: "Tech Innovation Hub",
-    description:
-      "A comprehensive platform designed to foster innovation and collaboration among tech enthusiasts on campus. This project provides tools and resources for students to work together on cutting-edge technology projects.",
-    expectations:
-      "Contributors should demonstrate strong technical skills, creative problem-solving abilities, and excellent communication skills. We value commitment to project goals and willingness to mentor newer team members.",
-    techStack:
-      "Built with Vue.js for the frontend, Python Django for the backend, and PostgreSQL for data management. Experience with cloud platforms like AWS is a plus.",
-    timeline: [
-      {
-        title: "Planning Phase",
-        date: "May 15, 2024",
-      },
-      {
-        title: "Development Sprint",
-        date: "June 30, 2024",
-      },
-      {
-        title: "Beta Launch",
-        date: "August 15, 2024",
-      },
-    ],
-  },
-  3: {
-    title: "Arts & Culture Festival",
-    description:
-      "An immersive digital platform celebrating campus arts and culture through virtual exhibitions, interactive performances, and community engagement features. This project bridges traditional arts with modern technology.",
-    expectations:
-      "We seek creative individuals passionate about arts and technology. Team members should be collaborative, detail-oriented, and committed to delivering high-quality user experiences.",
-    techStack:
-      "Developed using React with Three.js for 3D interactions, Node.js backend with GraphQL, and Firebase for real-time features. Knowledge of 3D modeling and AR/VR is beneficial.",
-    timeline: [
-      {
-        title: "Concept Development",
-        date: "April 20, 2024",
-      },
-      {
-        title: "Prototype Testing",
-        date: "June 10, 2024",
-      },
-      {
-        title: "Festival Launch",
-        date: "September 5, 2024",
-      },
-    ],
+      "Building a B2C marketplace for rural producers and urban consumers.",
+    expectations: "Need an engineer who is proficient in ML",
+    techStack: "ML, Tensorflow",
   },
 };
+
+const campusDAO = process.env.DAO_ADDRESS;
+
+// const campusDAOAbi = parseAbi([
+//   "function getProjectMetadata(uint256 projectId) external view returns (string memory)",
+// ]);
 
 export default function MyProjectDetail() {
   const navigate = useNavigate();
@@ -82,27 +32,35 @@ export default function MyProjectDetail() {
 
   const { logout } = useLogout();
   const { isConnected } = useSignerStatus();
+  const { client, address } = useSmartAccountClient({ type: "LightAccount" });
 
   // Get project data - fallback to project 1 if id not found
   const project =
     myProjectData[id as keyof typeof myProjectData] || myProjectData[1];
 
-  const handleExplorerClick = () => {
-    navigate("/projectexplorer");
-  };
+  // useEffect(() => {
+  //   (async () => {
+  //     if (!client || !address) return;
+  //     try {
+  //       const project = await client.readContract({
+  //         address: campusDAO,
+  //         abi: campusDAOAbi,
+  //         functionName: "getProjectMetadata",
+  //         args: [BigInt(id || "1")],
+  //       });
+  //       console.log(project);
+  //     } catch (error) {
+  //       console.error("Error fetching projects:", error);
+  //     }
+  //   })();
+  // }, [client, address]);
 
-  const handleYourWorksClick = () => {
-    navigate("/yourworks");
-  };
-
-  const handleProfileClick = () => {
-    // Navigate to profile page when implemented
-    console.log("Navigate to profile");
-  };
-
-  const handleGoBack = () => {
-    navigate("/yourworks");
-  };
+  const handleExplorerClick = () => navigate("/projectexplorer");
+  const handleYourWorksClick = () => navigate("/yourworks");
+  const handleDashboardClick = () => navigate("/dashboard");
+  const handleDAOClick = () => navigate("/dao");
+  const handleContributionsClick = () => navigate("/contributions");
+  const handleGoBack = () => navigate("/yourworks");
 
   return (
     <div className="min-h-screen bg-gray-50 font-public-sans">
@@ -243,14 +201,14 @@ export default function MyProjectDetail() {
           </div>
 
           {/* Timeline Section */}
-          <div className="px-4 py-4 pb-2">
+          {/* <div className="px-4 py-4 pb-2">
             <h2 className="text-lg font-bold text-gray-900">Timeline</h2>
           </div>
 
           <div className="px-4 py-0 space-y-2">
             {project.timeline.map((milestone, index) => (
               <div key={index} className="flex items-start gap-2">
-                {/* Timeline Icon and Line */}
+
                 <div className="flex flex-col items-center w-10 pt-3 gap-1">
                   <div className="flex flex-col items-center">
                     <Calendar className="w-6 h-6 text-gray-900" />
@@ -260,7 +218,6 @@ export default function MyProjectDetail() {
                   )}
                 </div>
 
-                {/* Timeline Content */}
                 <div className="flex-1 py-3">
                   <div className="space-y-0">
                     <h3 className="text-base font-medium text-gray-900">
@@ -273,7 +230,7 @@ export default function MyProjectDetail() {
                 </div>
               </div>
             ))}
-          </div>
+          </div> */}
 
           {/* Go Back Button */}
           <div className="px-4 py-3 mt-4">

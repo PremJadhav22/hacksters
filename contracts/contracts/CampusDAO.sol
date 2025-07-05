@@ -1,259 +1,213 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
 import "./CampusDAONFT.sol";
 
+contract CampusDAO is Ownable {
+    enum ProjectStatus { Open, DAOFormed, Completed }
+    enum JoinStatus { None, Pending, Approved, Rejected }
+    enum Vote { None, Yes, No }
 
-contract CampusDAO is ReentrancyGuard{
-    struct Project{
-        uint256 projectId;
-        string title;
-        string description;
-        string expectations;
-        string techStack;
-        string githubRepo;
+    struct Project {
+        uint256 id;
+        string title; // <-- Add this line
+        string ipfsMetadata; // IPFS hash for project metadata
         address owner;
         address[] members;
+        ProjectStatus status;
+        uint256 joinRequestCount;
+        mapping(address => JoinStatus) joinStatus;
         mapping(address => bool) isMember;
-        bool isActive;
-        uint256 createdAt;
+        mapping(uint256 => JoinRequest) joinRequests;
+        uint256 memberCount;
         uint256 maxMembers;
+        mapping(address => string) roles; 
+        uint256 deadline; // Timestamp after which NFTs can be minted
+        bool nftsMinted;
     }
 
-    struct JoinRequest{
-        uint256 requestId;
-        uint256 projectId;
+    struct JoinRequest {
         address applicant;
-        string message;
-        uint256 timestamp;
-        bool isApproved;
-        bool isProcessed;     
+        uint256 votesYes;
+        uint256 votesNo;
+        mapping(address => Vote) votes;
+        bool decided;
     }
 
-    struct Proposal{
-        uint256 proposalId;
-        uint256 projectId;
-        address proposer;
-        string description;
-        uint256 forVotes;
-        uint256 AgainstVotes;
-        mapping(address => bool) hasVoted;
-        bool isExecuted;
-        uint256 deadline;
-        ProposalType proposalType;
-    }
-
-    enum ProposalType {
-        ADD_MEMBER,
-        REMOVE_MEMBER,
-        UPDATE_PROJECT,
-        GOVERNANCE
-    }
-
-    CampusDAONFT public nftContract;
-
+    CampusDAONFT public nft;
+    uint256 public nextProjectId;
     mapping(uint256 => Project) public projects;
-    mapping(uint256 => JoinRequest) public joinRequests;
-    mapping(uint256 => Proposal) public proposals;
-    mapping(address => uint256[]) public userProjects;
-    mapping(address => uint256[]) public userContributions;
 
-    uint256 public nextProjectId; 
-    uint256 public nextRequestId; 
-    uint256 public nextProposalId; 
+    event ProjectCreated(uint256 indexed projectId, address indexed owner, string ipfsMetadata, uint256 deadline);
+    event JoinRequested(uint256 indexed projectId, address indexed applicant);
+    event JoinApproved(uint256 indexed projectId, address indexed applicant);
+    event MemberVoted(uint256 indexed projectId, address indexed voter, address indexed applicant, bool approve);
+    event NFTMinted(address indexed to, uint256 indexed projectId);
 
-    event ProjectCreated(uint256 indexed projectId, address indexed owner, string title);
-    event JoinRequestSubmitted(uint256 indexed requestId, uint256 indexed projectId, address indexed applicant);
-    event MemberAdded(uint256 indexed projectId, address indexed member);
-    event MemberRemoved(uint256 indexed projectId, address indexed member);
-    event ProposalCreated(uint256 indexed proposalId, uint256 indexed projectId, address indexed proposer, ProposalType proposalType);
-    event VoteCasted(uint256 indexed proposalId, address indexed voter, bool favour, uint256 power);
-
-    constructor (address _nftContract){
-        nftContract = CampusDAONFT(_nftContract);
+    constructor(address nftAddress) Ownable(msg.sender) {
+        nft = CampusDAONFT(nftAddress);
     }
 
-    function createProject(
-        string memory title,
-        string memory description,
-        string memory expectations,
-        string memory techStack,
-        string memory githubRepo,
-        uint256 maxMembers
-    ) public {
+    // Create a new project with IPFS metadata and maxMembers
+    function createProject(string memory title, string memory ipfsMetadata, uint256 maxMembers, uint256 deadline) external {
         uint256 projectId = nextProjectId++;
-
         Project storage p = projects[projectId];
-        p.projectId = projectId;
-        p.title = title;
-        p.description = description;
-        p.expectations = expectations;
-        p.techStack = techStack;
-        p.githubRepo = githubRepo;
+        p.id = projectId;
+        p.title = title;  
+        p.ipfsMetadata = ipfsMetadata;
         p.owner = msg.sender;
-        p.isActive = true;
-        p.createdAt = block.timestamp;
-        p.maxMembers = maxMembers;
-
-        //Adding owner as the first member
+        p.status = ProjectStatus.Open;
         p.members.push(msg.sender);
         p.isMember[msg.sender] = true;
-
-        userProjects[msg.sender].push(projectId);
-        
-        emit ProjectCreated(projectId, msg.sender, title);
+        p.memberCount = 1;
+        p.maxMembers = maxMembers;
+        p.deadline = deadline;
+        p.nftsMinted = false;
+        emit ProjectCreated(projectId, msg.sender, ipfsMetadata, deadline);
     }
 
-    function requestToJoin(uint256 projectId, string memory message) public{
-        require(projects[projectId].isActive, "Project is inactive");
-        require(!projects[projectId].isMember[msg.sender], "Already a member");
-        require(projects[projectId].members.length < projects[projectId].maxMembers, "Project full");
-
-        uint256 requestId = nextRequestId++ ;
-        joinRequests[requestId] = JoinRequest({
-            requestId: requestId,
-            projectId: projectId,
-            applicant: msg.sender,
-            message: message,
-            timestamp: block.timestamp,
-            isApproved: false,
-            isProcessed: false
-        }); 
-
-        emit JoinRequestSubmitted(requestId, projectId, msg.sender);
-    }
-
-    function createProposal(uint256 projectId, string memory description, ProposalType proposalType) public {
-        require(projects[projectId].isMember[msg.sender], "Not a project Member");
-        require(nftContract.balanceOf(msg.sender) > 0, "Must own a NFT to create proposal");
-
-        uint256 proposalId = nextProposalId++ ; 
-        Proposal storage prop = proposals[proposalId];
-        prop.proposalId = proposalId;
-        prop.projectId = projectId;
-        prop.proposer = msg.sender;
-        prop.description = description;
-        prop.deadline = block.timestamp + 7 days;
-        prop.proposalType = proposalType;
-
-        emit ProposalCreated(proposalId, projectId, msg.sender, proposalType);
-    }
-
-    function vote(uint256 proposalId, bool favour) public{
-        Proposal storage proposal = proposals[proposalId];
-        require(block.timestamp < proposal.deadline, "Voting period ended");
-        require(projects[proposal.projectId].isMember[msg.sender], "Not a project member");
-        require(!proposal.hasVoted[msg.sender], "You have already voted");
-
-        uint256 votingPower = nftContract.getVotingPower(msg.sender);
-        require(votingPower > 0, "Need voting power to vote");
-
-        proposal.hasVoted[msg.sender] = true;
-
-        if(favour){
-            proposal.forVotes += votingPower;
-        } else{
-            proposal.AgainstVotes += votingPower;
-        }
-
-        emit VoteCasted(proposalId, msg.sender, favour, votingPower);
-    }
-
-    function executeProposal(uint256 proposalId) public {
-        Proposal storage prop = proposals[proposalId];
-        require(block.timestamp >= prop.deadline, "Ongoing Voting period");
-        require(!prop.isExecuted, "Proposal already executed");
-        require(prop.forVotes > prop.AgainstVotes, "Proposal rejected");
-
-        prop.isExecuted = true;
-
-        if(prop.proposalType == ProposalType.ADD_MEMBER){
-            require(!projects[prop.projectId].isMember[msg.sender], "Already a member");
-            projects[prop.projectId].members.push(prop.proposer);
-            projects[prop.projectId].isMember[msg.sender] = true;
-            
-            emit MemberAdded(prop.projectId, prop.proposer);
-        } else if(prop.proposalType == ProposalType.REMOVE_MEMBER){
-            require(projects[prop.projectId].isMember[msg.sender], "Not a member");
-            address[] storage members = projects[prop.projectId].members;
-            uint256 len = members.length;
-
-            for(uint256 i = 0; i < len; i++){
-                if(members[i] == prop.proposer){
-                    for(uint256 j = i; j < len - 1; j++){
-                        members[j] = members[j+1];
-                    }
-                    members.pop();
-                    break;
+    function getMyDAOsJoinRequests(address user) external view returns (
+        uint256[] memory projectIds,
+        uint256[] memory requestIds,
+        address[] memory applicants,
+        bool[] memory decided
+    ) {
+        uint256 totalRequests = 0;
+        // First, count total requests for sizing arrays
+        for (uint256 pid = 0; pid < nextProjectId; pid++) {
+            Project storage p = projects[pid];
+            if (p.isMember[user]) {
+                for (uint256 rid = 0; rid < p.joinRequestCount; rid++) {
+                    totalRequests++;
                 }
             }
-
-            emit MemberRemoved(prop.projectId, prop.proposer);
-        } //update project
-    }
-
-    function recordContributions(address contributor, uint256 projectId, uint256 noOfContributions) public {
-        require(projects[projectId].owner == msg.sender, "Only project owner can add contributions");
-        require(projects[projectId].isMember[contributor], "Not a project member");
-
-        userContributions[contributor].push(noOfContributions);
-
-        uint256 total = 0;
-        for (uint i = 0; i < userContributions[contributor].length; i++) {
-            total += userContributions[contributor][i];
         }
+        // Prepare arrays
+        projectIds = new uint256[](totalRequests);
+        requestIds = new uint256[](totalRequests);
+        applicants = new address[](totalRequests);
+        decided = new bool[](totalRequests);
 
-        if (nftContract.balanceOf(contributor) > 0) {
-            uint256[] memory tokens = nftContract.userTokens(contributor);
-            for (uint i = 0; i < userContributions[contributor].length; i++) {
-                total += userContributions[contributor][i];
+        uint256 idx = 0;
+        for (uint256 pid = 0; pid < nextProjectId; pid++) {
+            Project storage p = projects[pid];
+            if (p.isMember[user]) {
+                for (uint256 rid = 0; rid < p.joinRequestCount; rid++) {
+                    JoinRequest storage jr = p.joinRequests[rid];
+                    projectIds[idx] = pid;
+                    requestIds[idx] = rid;
+                    applicants[idx] = jr.applicant;
+                    decided[idx] = jr.decided;
+                    idx++;
+                }
             }
-            nftContract.updateContributions(tokens[0], total);
-        } else {
-            nftContract.mintNFT(contributor, total);
         }
     }
 
-
-    function getProjectInfo(uint256 projectId) public view returns (
-        uint256 id,
-        string memory title,
-        string memory description,
-        string memory expectations,
-        string memory techStack,
-        string memory githubRepo,
-        address owner,
-        address[] memory members,
-        bool isActive,
-        uint256 createdAt,
-        uint256 maxMembers 
-    ){
+    // Request to join a project
+    function requestToJoin(uint256 projectId) external {
         Project storage p = projects[projectId];
-        return(
-            p.projectId,
-            p.title,
-            p.description,
-            p.expectations,
-            p.techStack,
-            p.githubRepo,
-            p.owner,
-            p.members,
-            p.isActive,
-            p.createdAt,
-            p.maxMembers
-        );
+        require(p.status == ProjectStatus.Open || p.status == ProjectStatus.DAOFormed, "Project not open");
+        require(!p.isMember[msg.sender], "Already a member");
+        require(p.joinStatus[msg.sender] == JoinStatus.None, "Already requested");
+        require(p.memberCount < p.maxMembers, "Max members reached");
+
+        uint256 reqId = p.joinRequestCount++;
+        JoinRequest storage jr = p.joinRequests[reqId];
+        jr.applicant = msg.sender;
+        p.joinStatus[msg.sender] = JoinStatus.Pending;
+
+        emit JoinRequested(projectId, msg.sender);
     }
 
-    function getUserProjects(address user) public view returns(uint256[] memory){
-        return userProjects[user];
+    // Approve or vote on a join request
+    function approveJoin(uint256 projectId, uint256 reqId, bool approve, string memory role) public {
+        Project storage p = projects[projectId];
+        JoinRequest storage jr = p.joinRequests[reqId];
+        require(jr.applicant != address(0), "Invalid request");
+        require(!jr.decided, "Already decided");
+
+        if (p.memberCount < 2) {
+            require(msg.sender == p.owner, "Only owner can approve");
+            if (approve) {
+                _addMember(projectId, jr.applicant, role);
+                p.joinStatus[jr.applicant] = JoinStatus.Approved;
+                jr.decided = true;
+                emit JoinApproved(projectId, jr.applicant);
+                p.status = ProjectStatus.DAOFormed;
+            } else {
+                p.joinStatus[jr.applicant] = JoinStatus.Rejected;
+                jr.decided = true;
+            }
+        } else {
+            require(p.isMember[msg.sender], "Only DAO members can vote");
+            require(jr.votes[msg.sender] == Vote.None, "Already voted");
+            if (approve) {
+                jr.votesYes++;
+                jr.votes[msg.sender] = Vote.Yes;
+            } else {
+                jr.votesNo++;
+                jr.votes[msg.sender] = Vote.No;
+            }
+            emit MemberVoted(projectId, msg.sender, jr.applicant, approve);
+
+            if (jr.votesYes > p.memberCount / 2) {
+                _addMember(projectId, jr.applicant, role);
+                p.joinStatus[jr.applicant] = JoinStatus.Approved;
+                jr.decided = true;
+                emit JoinApproved(projectId, jr.applicant);
+            } else if (jr.votesNo >= (p.memberCount + 1) / 2) {
+                p.joinStatus[jr.applicant] = JoinStatus.Rejected;
+                jr.decided = true;
+            }
+        }
     }
 
-    function getUserContributions(address user) public view returns(uint256[] memory){
-        return userContributions[user];
-    }    
+    function _addMember(uint256 projectId, address member, string memory role) internal {
+        Project storage p = projects[projectId];
+        p.members.push(member);
+        p.isMember[member] = true;
+        p.memberCount++;
+        p.roles[member] = role; // Assign the role
+    }
+
+    // Mint NFTs to all contributors after the deadline
+    function mintNFTsToContributors(uint256 projectId) external {
+        Project storage p = projects[projectId];
+        require(msg.sender == p.owner, "Only project owner can mint");
+        require(p.status == ProjectStatus.DAOFormed, "DAO not formed");
+        require(block.timestamp >= p.deadline, "Deadline not reached");
+        require(!p.nftsMinted, "NFTs already minted");
+
+        for (uint256 i = 0; i < p.members.length; i++) {
+            address member = p.members[i];
+            string memory role = p.roles[member];
+            nft.mint(member, getProjectTitle(projectId), role);
+            emit NFTMinted(member, projectId);
+        }
+        p.status = ProjectStatus.Completed;
+        p.nftsMinted = true;
+    }
+    
+    function getProjectTitle(uint256 projectId) public view returns (string memory) {
+        return projects[projectId].title;
+    }
+
+    // View functions
+    function getProjectMembers(uint256 projectId) external view returns (address[] memory) {
+        return projects[projectId].members;
+    }
+
+    function getProjectStatus(uint256 projectId) external view returns (ProjectStatus) {
+        return projects[projectId].status;
+    }
+
+    function getProjectMetadata(uint256 projectId) external view returns (string memory) {
+        return projects[projectId].ipfsMetadata;
+    }
+
+    function getMemberRole(uint256 projectId, address member) external view returns (string memory) {
+        return projects[projectId].roles[member];
+    }
 }

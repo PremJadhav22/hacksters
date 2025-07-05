@@ -7,6 +7,9 @@ import {
   useSendUserOperation,
   useSmartAccountClient,
 } from "@account-kit/react";
+import {uploadJSONToIPFS} from './utils/pinata';
+import ipfs from './utils/ipfs';
+
 interface TeamMember {
   id: string;
   email: string;
@@ -14,10 +17,10 @@ interface TeamMember {
   avatar?: string;
 }
 
-const campusDAO = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
+const campusDAO = process.env.DAO_ADDRESS;
 
 const campusDAOAbi = parseAbi([
-  "function createProject(string memory title, string memory description, string memory expectations, string memory techStack, string memory githubRepo, uint256 maxMembers) public",
+  "function createProject(string memory title, string memory ipfsMetadata, uint256 maxMembers, uint256 deadline) external"
 ]);
 
 export default function StartProject() {
@@ -33,14 +36,12 @@ export default function StartProject() {
   });
 
   const [formData, setFormData] = useState({
-    ownerName: "",
     projectTitle: "",
     description: "",
     clearExpectations: "",
     techStack: "",
     repositoryLink: "",
     maxMembers: "",
-    governanceMode: "solo", 
   });
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([
@@ -84,8 +85,11 @@ export default function StartProject() {
     navigate("/yourworks");
   };
 
-  async function createProjectOnChain() {
+  async function createProjectOnChain(metadataURL: string) {
     try {
+      const now = Math.floor(Date.now() / 1000); 
+      var deadline = now + 2 * 60; // 2 minutes from now
+
       const res = await sendUserOperationAsync({
         uo: {
           target: campusDAO,
@@ -94,11 +98,9 @@ export default function StartProject() {
             functionName: "createProject",
             args: [
               formData.projectTitle,
-              formData.description,
-              formData.clearExpectations,
-              formData.techStack,
-              formData.repositoryLink,
+              metadataURL,
               BigInt(formData.maxMembers),
+              deadline,
             ],
           }),
         },
@@ -111,7 +113,12 @@ export default function StartProject() {
   }
 
   const handleSubmit = async () => {
-    await createProjectOnChain();
+    const data = JSON.stringify(formData);
+    console.log(data)
+    // const response = await uploadJSONToIPFS(formData);
+    // const metadataURL = response.cid;
+    // console.log("Metadata uploaded to IPFS:", response);
+    await createProjectOnChain("bafkreihun7asyvswodaawd7dmebx327m6qy3tq7qxat6nco4cw63cfv5ty");
   };
 
   const handleDashboardClick = () => {
@@ -337,14 +344,13 @@ export default function StartProject() {
             </div>
 
             {/* Governance Mode */}
-            <div className="px-4 pb-2">
+            {/* <div className="px-4 pb-2">
               <h2 className="text-lg font-bold text-gray-900">
                 Governance Mode
               </h2>
-            </div>
+            </div> */}
 
-            <div className="px-4 space-y-3">
-              {/* Solo Admin Option */}
+            {/* <div className="px-4 space-y-3">
               <div
                 className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
                   formData.governanceMode === "solo"
@@ -376,7 +382,6 @@ export default function StartProject() {
                 </div>
               </div>
 
-              {/* Snapshot DAO Option */}
               <div
                 className={`flex items-center gap-4 p-4 border rounded-xl cursor-pointer transition-all ${
                   formData.governanceMode === "snapshot"
@@ -407,7 +412,7 @@ export default function StartProject() {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Team Members Section */}
             {/* <div className="px-4 pb-2">

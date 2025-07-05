@@ -1,48 +1,32 @@
 import { ChevronDown, Search, Bell } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { useLogout, useSignerStatus } from "@account-kit/react";
+import { parseAbi, encodeFunctionData } from "viem";
+import {
+  useSmartAccountClient,
+  useSendUserOperation,
+} from "@account-kit/react";
 
 const projectsData = [
   {
     id: 1,
-    title: "AI-Powered Study Assistant",
+    title: "Spriggle",
     description:
-      "Develop an AI-driven study tool to help students with research, note-taking, and exam preparation. This project aims to leverage machine learning to personalize the learning experience.",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/6fd928d0205e25058a351eaebdd21128a86ef89f?width=618",
+      "Building a B2C marketplace for rural producers and urban consumers.",
   },
   {
     id: 2,
-    title: "Decentralized Event Management System",
+    title: "EventFlow",
     description:
-      "Create a decentralized platform for managing campus events, including scheduling, ticketing, and attendance tracking. The system will utilize blockchain technology for enhanced security and transparency.",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/cbeb5bd2d470f3efb0a6a98f621aa60f1ec3b0d2?width=618",
+      "Create a decentralized platform for managing campus events for enhanced security and transparency.",
   },
   {
     id: 3,
-    title: "Collaborative Coding Environment",
+    title: "TravelBud",
     description:
-      "Build a collaborative coding environment that allows multiple developers to work on the same project simultaneously. The platform will support real-time code editing, version control, and integrated communication tools.",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/c49dcfee555039fd0d4db156c4b1694933726d9d?width=618",
-  },
-  {
-    id: 4,
-    title: "Open Source Project Tracker",
-    description:
-      "Design a tool to track contributions to open-source projects, providing a centralized view of progress, issues, and pull requests. This project will help developers manage their contributions and identify new opportunities.",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/c0cc1e2821fca5199fd9aa7c5bd61d8470e85d88?width=618",
-  },
-  {
-    id: 5,
-    title: "Community Forum for Developers",
-    description:
-      "Develop a forum for developers to discuss projects, share knowledge, and collaborate on solutions. The forum will feature categories for different technologies, project types, and skill levels.",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/719c9c5492aede1f65e465003e55181d0ba1362b?width=618",
+      "One stop solution for travel planning with agents",
   },
 ];
 
@@ -53,10 +37,10 @@ const FilterDropdown = ({ label }: { label: string }) => (
   </div>
 );
 
-const ProjectCard = ({ 
-  project, 
-  onViewProject 
-}: { 
+const ProjectCard = ({
+  project,
+  onViewProject,
+}: {
   project: (typeof projectsData)[0];
   onViewProject: (id: number) => void;
 }) => (
@@ -75,7 +59,7 @@ const ProjectCard = ({
               {project.description}
             </p>
           </div>
-          <button 
+          <button
             onClick={() => onViewProject(project.id)}
             className="px-4 py-2 bg-gray-100 text-gray-900 text-sm font-medium rounded-2xl hover:bg-gray-200 transition-colors"
           >
@@ -84,7 +68,7 @@ const ProjectCard = ({
         </div>
         <div className="flex-shrink-0">
           <img
-            src={project.image}
+            src="https://cdn.builder.io/api/v1/image/assets/TEMP/c49dcfee555039fd0d4db156c4b1694933726d9d?width=618"
             alt={project.title}
             className="w-64 h-40 object-cover rounded-xl"
           />
@@ -94,10 +78,44 @@ const ProjectCard = ({
   </div>
 );
 
+const campusDAO = process.env.DAO_ADDRESS;
+
+// const campusDAOAbi = parseAbi([
+//   "function getAllProjects() external view returns (ProjectSummary[] memory)",
+// ]);
+
+// const campusDAOAbi = JSON.parse(process.env.DAO_ABI);
+
 export default function ProjectExplorer() {
   const navigate = useNavigate();
   const { logout } = useLogout();
   const { isConnected } = useSignerStatus();
+
+  const { client, address } = useSmartAccountClient({ type: "LightAccount" });
+  const [activeProjects, setActiveProjects] = useState([]);
+  
+
+  // useEffect(() => {
+  //   (async () => {
+  //     if (!client || !address) return;
+  //     try {
+  //       const projects = await client.readContract({
+  //         address: campusDAO,
+  //         abi: campusDAOAbi,
+  //         functionName: "getAllProjects",
+  //       });
+  //       console.log(projects);
+
+  //       const activeProjects = projects.filter(project => {
+  //           return project.status !== "Completed";
+  //       });
+  //       setActiveProjects(activeProjects);
+  //     } 
+  //     catch (error) {
+  //       console.error("Error fetching projects:", error);
+  //     }
+  //   })();
+  // }, [client, address]);
 
   const handleDashboardClick = () => {
     navigate("/dashboard");
@@ -225,9 +243,9 @@ export default function ProjectExplorer() {
           {/* Projects Grid */}
           <div className="space-y-4">
             {projectsData.map((project) => (
-              <ProjectCard 
-                key={project.id} 
-                project={project} 
+              <ProjectCard
+                key={project.id}
+                project={project}
                 onViewProject={handleViewProject}
               />
             ))}

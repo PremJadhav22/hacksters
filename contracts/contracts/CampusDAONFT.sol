@@ -1,63 +1,43 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Base64.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
-contract CampusDAONFT is ERC721, ERC721Enumerable, Ownable{
-    uint256 public _nextTokenId;
-    mapping(uint256 => uint256) public contributions;
+contract CampusDAONFT is ERC721Enumerable, Ownable {
+    uint256 public nextTokenId;
 
-    constructor () ERC721("CampusDAO Member", "CAMPUS") Ownable(msg.sender) {}
+    struct NFTData {
+        string projectTitle;
+        string role;
+    }
 
-    function mintNFT(address to, uint256 initialContributions) public onlyOwner(){
-        uint256 tokenId = _nextTokenId;
+    mapping(uint256 => NFTData) public nftData;
+
+    constructor() ERC721("CampusDAO Contributor", "CDAO-NFT") Ownable(msg.sender) {}
+
+    function mint(address to, string memory projectTitle, string memory role) external onlyOwner {
+        uint256 tokenId = nextTokenId++;
         _safeMint(to, tokenId);
-
-        contributions[tokenId] = initialContributions;
-        _nextTokenId++;
+        nftData[tokenId] = NFTData(projectTitle, role);
     }
 
-    function updateContributions(uint256 tokenId, uint256 newTotal) public onlyOwner(){
-        contributions[tokenId] = newTotal;
-    }
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(ownerOf(tokenId) != address(0), "Token does not exist");
+        NFTData memory data = nftData[tokenId];
 
-    function userTokens(address owner) public view returns (uint256[] memory) {
-        uint256 balance = balanceOf(owner);
-        uint256[] memory tokens = new uint256[](balance);
-        for(uint256 i = 0; i< balance; i++){
-            tokens[i] = tokenOfOwnerByIndex(owner, i);
-        }
-        return tokens;
-    }
+        // Compose the metadata JSON
+        string memory json = string(abi.encodePacked(
+            '{"name":"CampusDAO Contributor #', Strings.toString(tokenId),
+            '", "description":"On-chain NFT for CampusDAO contributors",',
+            '"projectTitle":"', data.projectTitle,
+            '", "role":"', data.role, '"}'
+        ));
 
-    function getVotingPower(address user) public view returns(uint256){
-        uint256 power=0;
-        uint256[] memory tokens = userTokens(user);
-
-        for( uint256 i = 0;i < tokens.length; i++){
-            power += contributions[tokens[i]];
-        }
-        return power;
+        // Encode as base64 and return as data URI
+        string memory encoded = Base64.encode(bytes(json));
+        return string(abi.encodePacked("data:application/json;base64,", encoded));
     }
-
-    function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
-        super._increaseBalance(account, value);
-    }
-    
-    function _update(address to, uint256 tokenId, address auth) internal override(ERC721, ERC721Enumerable) returns (address) {
-        return super._update(to, tokenId, auth);
-    }
-
-    function supportsInterface(bytes4 interfaceId)
-        public 
-        view
-        override(ERC721, ERC721Enumerable)
-        returns (bool)
-    {
-        return (super.supportsInterface(interfaceId));
-    }
-
 }

@@ -9,48 +9,16 @@ import { useSmartAccountClient, useSendUserOperation } from "@account-kit/react"
 const createdProjectsData = [
   {
     id: 1,
-    title: "Campus Sustainability Initiative",
-    tags: "Sustainability, Environment, Campus Improvement",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/d7bda7857d0616083d150230093908f8b4271d6f?width=640",
-  },
-  {
-    id: 2,
-    title: "Tech Innovation Hub",
-    tags: "Technology, Innovation, Student Collaboration",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/2620edfacdd1cb57935ec9687ce087cf4b1ffee8?width=640",
-  },
-  {
-    id: 3,
-    title: "Arts & Culture Festival",
-    tags: "Arts, Culture, Community Engagement",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/0e959d16ffa941706d6d176fd25bf87f0a82079d?width=640",
+    title: "Spriggle",
+    tags: "ML, Tensorflow",
   },
 ];
 
 const participatedProjectsData = [
   {
     id: 4,
-    title: "AI-Powered Study Assistant",
-    tags: "AI, Machine Learning, Education",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/6fd928d0205e25058a351eaebdd21128a86ef89f?width=618",
-  },
-  {
-    id: 5,
-    title: "Decentralized Event Management System",
-    tags: "Blockchain, Events, Management",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/cbeb5bd2d470f3efb0a6a98f621aa60f1ec3b0d2?width=618",
-  },
-  {
-    id: 6,
-    title: "Community Forum for Developers",
-    tags: "Community, Development, Collaboration",
-    image:
-      "https://cdn.builder.io/api/v1/image/assets/TEMP/719c9c5492aede1f65e465003e55181d0ba1362b?width=618",
+    title: "EventFlow",
+    tags: "Blockchain, Smart Contracts, Web3",
   },
 ];
 
@@ -98,7 +66,7 @@ const ProjectCard = ({
       </div>
       <div className="flex-shrink-0">
         <img
-          src={project.image}
+          src="https://cdn.builder.io/api/v1/image/assets/TEMP/6fd928d0205e25058a351eaebdd21128a86ef89f?width=618"
           alt={project.title}
           className="w-80 h-44 object-cover rounded-xl transition-transform duration-200 hover:scale-105"
         />
@@ -107,13 +75,12 @@ const ProjectCard = ({
   );
 };
 
-const campusDAO = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";
+const campusDAO = process.env.DAO_ADDRESS;
 
-const campusDAOAbi = parseAbi([
-  "function createProject(string memory title, string memory description, string memory expectations, string memory techStack, string memory githubRepo, uint256 maxMembers) public",
-  "function getProjectInfo(uint256 projectId) public view returns (uint256 id, string memory title, string memory description, string memory expectations, string memory techStack, string memory githubRepo, address owner, address[] memory members, bool isActive, uint256 createdAt, uint256 maxMembers)",
-  "function getUserProjects(address user) public view returns(uint256[] memory)"
-]);
+// const campusDAOAbi = JSON.parse(process.env.DAO_ABI);
+// const campusDAOAbi = parseAbi([
+//   "function getAllProjects() external view returns (ProjectSummary[] memory)"
+// ]);
 
 export default function YourWorks() {
   const { logout } = useLogout();
@@ -125,28 +92,53 @@ export default function YourWorks() {
     "created",
   );
 
+  const [createdProjects, setCreatedProjects] = useState([]);
+  const [participatedProjects, setParticipatedProjects] = useState([]);
+
   const currentProjects =
     activeTab === "created" ? createdProjectsData : participatedProjectsData;
 
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    (async () => {
+  async function fetchAndSplitUserProjects() {
       if (!client || !address) return; 
+
       try {
-        const projects = await client.readContract({
+        const allProjects = await client.readContract({
           address: campusDAO,
           abi: campusDAOAbi,
-          functionName: "getUserProjects",
-          args: [address as string],
+          functionName: "getAllProjects",
         });
-        console.log(projects);
+        console.log(allProjects);
+
+        const created = [];
+        const participated = [];
+
+        for (const project of allProjects) {
+            if (project.owner.toLowerCase() === address.toLowerCase()) {
+                created.push(project);
+            } 
+            else if (project.isMember && project.isMember[address]) {
+                // If isMember mapping is not available, you may need to call a view function for each project
+                participated.push(project);
+            }
+        }
+
+        return { created, participated };
+
       } catch (error) {
         console.error("Error fetching projects:", error);
       }
       
-    })(); 
-  }, [client, address]);
+  }
+
+  const navigate = useNavigate();
+
+  // useEffect(() => {
+  //   (async () => {
+  //     const { created, participated } = await fetchAndSplitUserProjects()
+  //     setCreatedProjects(created);
+  //     setParticipatedProjects(participated);
+  //   })();
+  // }, []);
 
   const handleDashboardClick = () => {
     navigate("/dashboard");

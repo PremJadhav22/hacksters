@@ -4,37 +4,25 @@ import { useLogout, useSignerStatus } from "@account-kit/react";
 const joinRequestsData = [
   {
     id: 1,
-    name: "Ethan Carter",
-    role: "Frontend Developer",
+    name: "0xFe34567890abcdef1234567890abcdef12345678",
     status: "Pending",
   },
-  {
-    id: 2,
-    name: "Olivia Harper",
-    role: "Backend Developer",
-    status: "Pending",
-  },
-  {
-    id: 3,
-    name: "Liam Bennett",
-    role: "UI/UX Designer",
-    status: "Pending",
-  },
+  
 ];
 
 const governanceVotingData = [
   {
     id: 1,
-    proposal: "Approve Ethan Carter",
+    proposal: "Approve 0xFe34567890abcdef1234567890abcdef12345678",
     status: "Open",
-    votingWeight: "NFT Count: 3",
+    votingWeight: "NFT Count: 10",
     action: "Vote",
   },
   {
     id: 2,
-    proposal: "Approve Olivia Harper",
+    proposal: "Approve 0xGd34567890asdjkdjfhkf67890abcdef12345678",
     status: "Closed",
-    votingWeight: "NFT Count: 2",
+    votingWeight: "NFT Count: 5",
     action: "View Results",
   },
 ];
@@ -42,15 +30,9 @@ const governanceVotingData = [
 const votingHistoryData = [
   {
     id: 1,
-    proposal: "Approve Liam Bennett",
+    proposal: "Approve 0xGd34567890asdjkdjfhkf67890abcdef12345678",
     vote: "Yes",
-    date: "2024-07-26",
-  },
-  {
-    id: 2,
-    proposal: "Approve Noah Thompson",
-    vote: "No",
-    date: "2024-07-20",
+    // date: "2024-07-26",
   },
 ];
 
@@ -235,12 +217,12 @@ export default function DAOManagement() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {/* Table Header */}
               <TableHeader>
-                <TableCell width="267px" isHeader>
+                <TableCell width="360px" isHeader>
                   Name
                 </TableCell>
-                <TableCell width="273px" isHeader>
+                {/* <TableCell width="273px" isHeader>
                   Role
-                </TableCell>
+                </TableCell> */}
                 <TableCell width="189px" isHeader>
                   Status
                 </TableCell>
@@ -255,10 +237,10 @@ export default function DAOManagement() {
                   key={request.id}
                   className="flex items-center border-t border-gray-200 h-18"
                 >
-                  <TableCell width="267px">{request.name}</TableCell>
-                  <TableCell width="273px" className="text-campus-text">
+                  <TableCell width="360px">{request.name}</TableCell>
+                  {/* <TableCell width="273px" className="text-campus-text">
                     {request.role}
-                  </TableCell>
+                  </TableCell> */}
                   <TableCell width="189px">
                     <StatusBadge status={request.status} />
                   </TableCell>
@@ -279,16 +261,16 @@ export default function DAOManagement() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {/* Table Header */}
               <TableHeader>
-                <TableCell width="280px" isHeader>
+                <TableCell width="350px" isHeader>
                   Proposal
                 </TableCell>
-                <TableCell width="192px" isHeader>
+                <TableCell width="170px" isHeader>
                   Status
                 </TableCell>
-                <TableCell width="275px" isHeader>
+                <TableCell width="200px" isHeader>
                   Voting Weight
                 </TableCell>
-                <TableCell width="179px" isHeader className="text-campus-text">
+                <TableCell width="150px" isHeader className="text-campus-text">
                   Vote
                 </TableCell>
               </TableHeader>
@@ -299,14 +281,14 @@ export default function DAOManagement() {
                   key={item.id}
                   className="flex items-center border-t border-gray-200 h-18"
                 >
-                  <TableCell width="280px">{item.proposal}</TableCell>
-                  <TableCell width="192px">
+                  <TableCell width="350px">{item.proposal}</TableCell>
+                  <TableCell width="170px">
                     <StatusBadge status={item.status} />
                   </TableCell>
-                  <TableCell width="275px" className="text-campus-text">
+                  <TableCell width="200px" className="text-campus-text">
                     {item.votingWeight}
                   </TableCell>
-                  <TableCell width="179px">
+                  <TableCell width="150px">
                     <ActionButton>{item.action}</ActionButton>
                   </TableCell>
                 </div>
@@ -323,15 +305,15 @@ export default function DAOManagement() {
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               {/* Table Header */}
               <TableHeader>
-                <TableCell width="315px" isHeader>
+                <TableCell width="400px" isHeader>
                   Proposal
                 </TableCell>
-                <TableCell width="304px" isHeader>
+                <TableCell width="200px" isHeader>
                   Vote
                 </TableCell>
-                <TableCell width="307px" isHeader>
+                {/* <TableCell width="307px" isHeader>
                   Date
-                </TableCell>
+                </TableCell> */}
               </TableHeader>
 
               {/* Table Rows */}
@@ -340,13 +322,13 @@ export default function DAOManagement() {
                   key={item.id}
                   className="flex items-center border-t border-gray-200 h-18"
                 >
-                  <TableCell width="315px">{item.proposal}</TableCell>
-                  <TableCell width="304px" className="text-campus-text">
+                  <TableCell width="400px">{item.proposal}</TableCell>
+                  <TableCell width="200px" className="text-campus-text">
                     {item.vote}
                   </TableCell>
-                  <TableCell width="307px" className="text-campus-text">
+                  {/* <TableCell width="307px" className="text-campus-text">
                     {item.date}
-                  </TableCell>
+                  </TableCell> */}
                 </div>
               ))}
             </div>

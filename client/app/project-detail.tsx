@@ -1,34 +1,69 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { Search, Bell } from "lucide-react";
+import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
 import { useLogout, useSignerStatus } from "@account-kit/react";
+import { parseAbi, encodeFunctionData } from "viem";
+import {
+  useSmartAccountClient,
+  useSendUserOperation,
+} from "@account-kit/react";
 
-// Mock project data - in a real app, this would come from an API
 const projectData = {
   1: {
-    title: "CampusConnect",
+    title: "Spriggle",
     description:
-      "A platform connecting students with campus resources and events.",
-    fullDescription:
-      "Develop a mobile app to streamline access to campus services and activities.",
+      "Building a B2C marketplace for rural producers and urban consumers.",
     expectations:
-      "Successful launch of the app with positive user feedback and high adoption rates.",
-    techStack: "React Native, Node.js, PostgreSQL",
-    owner: "Ethan Harper",
+      "Need an engineer who is proficient in ML",
+    techStack: "ML, Tensorflow",
+    owner: "0xFe34567890abcdef1234567890abcdef12345678", 
     maxMembers: "5",
     members: [
-      { name: "Ethan Harper", role: "Project Lead", rep: "120" },
-      { name: "Olivia Bennett", role: "UI/UX Designer", rep: "95" },
-      { name: "Noah Carter", role: "Frontend Developer", rep: "110" },
+      { address: "0xFe34567890abcdef1234567890abcdef12345678", role: "Project Lead", rep: "20" },
     ],
     contributions: [
-      { contributor: "Ethan Harper", commits: "52" },
-      { contributor: "Olivia Bennett", commits: "12" },
-      { contributor: "Noah Carter", commits: "45" },
+      { contributor: "0xFe34567890abcdef1234567890abcdef12345678", commits: "2" },
     ],
   },
-  // Add more projects as needed
+  2: {
+    title: "EventFlow",
+    description:
+      "Create a decentralized platform for managing campus events for enhanced security and transparency.",
+    expectations:
+      "Need an engineer who is proficient in ML",
+    techStack: "Blockchain, Smart Contracts, Web3",
+    owner: "0xFe34567890abcdef1234567890abcdef12345678", 
+    maxMembers: "2",
+    members: [
+      { address: "0xFe34567890abcdef1234567890abcdef12345678", role: "Developer", rep: "10" },
+    ],
+    contributions: [
+      { contributor: "0xFe34567890abcdef1234567890abcdef12345678", commits: "2" },
+    ],
+  },
+  3: {
+    title: "TravelBud",
+    description:
+      "One stop solution for travel planning with agents",
+    expectations:
+      "Need an engineer who is proficient in ML",
+    techStack: "AI agents, Langraph, LLMs",
+    owner: "0xFe34567890abcdef1234567890abcdef12345678", 
+    maxMembers: "3",
+    members: [
+      { address: "0xFe34567890abcdef1234567890abcdef12345678", role: "Agent Dev", rep: "20" },
+    ],
+    contributions: [
+      { contributor: "0xFe34567890abcdef1234567890abcdef12345678", commits: "2" },
+    ],
+  },
 };
+
+// const campusDAO = process.env.DAO_ADDRESS;
+
+// const campusDAOAbi = parseAbi([
+//   "function getProjectMetadata(uint256 projectId) external view returns (string memory)",
+// ]);
 
 export default function ProjectDetail() {
   const navigate = useNavigate();
@@ -36,8 +71,27 @@ export default function ProjectDetail() {
   const { logout } = useLogout();
   const { isConnected } = useSignerStatus();
 
+  const { client, address } = useSmartAccountClient({ type: "LightAccount" });
+
   // Get project data - fallback to project 1 if id not found
   const project = projectData[id as keyof typeof projectData] || projectData[1];
+
+  // useEffect(() => {
+  //   (async () => {
+  //     if (!client || !address) return;
+  //     try {
+  //       const project = await client.readContract({
+  //         address: campusDAO,
+  //         abi: campusDAOAbi,
+  //         functionName: "getProjectMetadata",
+  //         args: [BigInt(id || "1")],
+  //       });
+  //       console.log(project);
+  //     } catch (error) {
+  //       console.error("Error fetching projects:", error);
+  //     }
+  //   })();
+  // }, [client, address]);
 
   const handleDashboardClick = () => {
     navigate("/dashboard");
@@ -188,7 +242,7 @@ export default function ProjectDetail() {
                 </div>
                 <div className="flex-1 px-4 py-5">
                   <span className="text-sm text-gray-900">
-                    {project.fullDescription}
+                    {project.description}
                   </span>
                 </div>
               </div>
@@ -276,7 +330,7 @@ export default function ProjectDetail() {
                   className="flex border-b border-gray-200 last:border-b-0"
                 >
                   <div className="flex-1 px-4 py-4">
-                    <span className="text-sm text-gray-900">{member.name}</span>
+                    <span className="text-sm text-gray-900">{member.address}</span>
                   </div>
                   <div className="flex-1 px-4 py-4">
                     <span className="text-sm text-gray-600">{member.role}</span>
