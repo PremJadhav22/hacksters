@@ -9,6 +9,19 @@ contract CampusDAO is Ownable {
     enum JoinStatus { None, Pending, Approved, Rejected }
     enum Vote { None, Yes, No }
 
+    struct ProjectSummary {
+        uint256 id;
+        string title;
+        string ipfsMetadata;
+        address owner;
+        ProjectStatus status;
+        uint256 memberCount;
+        uint256 maxMembers;
+        uint256 deadline;
+        bool nftsMinted;
+    }
+
+
     struct Project {
         uint256 id;
         string title; // <-- Add this line
@@ -65,6 +78,25 @@ contract CampusDAO is Ownable {
         p.deadline = deadline;
         p.nftsMinted = false;
         emit ProjectCreated(projectId, msg.sender, ipfsMetadata, deadline);
+    }
+
+    function getAllProjects() external view returns (ProjectSummary[] memory) {
+        ProjectSummary[] memory summaries = new ProjectSummary[](nextProjectId);
+        for (uint256 i = 0; i < nextProjectId; i++) {
+            Project storage p = projects[i];
+            summaries[i] = ProjectSummary({
+                id: p.id,
+                title: p.title,
+                ipfsMetadata: p.ipfsMetadata,
+                owner: p.owner,
+                status: p.status,
+                memberCount: p.memberCount,
+                maxMembers: p.maxMembers,
+                deadline: p.deadline,
+                nftsMinted: p.nftsMinted
+            });
+        }
+        return summaries;
     }
 
     function getMyDAOsJoinRequests(address user) external view returns (
