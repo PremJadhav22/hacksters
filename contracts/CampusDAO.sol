@@ -39,6 +39,7 @@ contract CampusDAO is ReentrancyGuard{
         uint256 proposalId;
         uint256 projectId;
         address proposer;
+        address target;
         string description;
         uint256 forVotes;
         uint256 AgainstVotes;
@@ -57,11 +58,13 @@ contract CampusDAO is ReentrancyGuard{
 
     CampusDAONFT public nftContract;
 
-    mapping(uint256 => Project) public projects;
+    mapping(uint256 => Project) projects;
     mapping(uint256 => JoinRequest) public joinRequests;
     mapping(uint256 => Proposal) public proposals;
     mapping(address => uint256[]) public userProjects;
-    mapping(address => uint256[]) public userContributions;
+    mapping(address => uint256) public userTotalContributions;
+    mapping(address => mapping(uint256 => uint256)) public userProjectContributions; 
+
 
     uint256 public nextProjectId; 
     uint256 public nextRequestId; 
@@ -128,7 +131,42 @@ contract CampusDAO is ReentrancyGuard{
         emit JoinRequestSubmitted(requestId, projectId, msg.sender);
     }
 
-    function createProposal(uint256 projectId, string memory description, ProposalType proposalType) public {
+    function getJoinRequest(uint256 requestId) public view returns (
+        uint256 id,
+        uint256 projectId,
+        address applicant,
+        string memory message,
+        uint256 timestamp,
+        bool isApproved,
+        bool isProcessed
+    ) {
+        JoinRequest storage req = joinRequests[requestId];
+        return (
+            req.requestId,
+            req.projectId,
+            req.applicant,
+            req.message,
+            req.timestamp,
+            req.isApproved,
+            req.isProcessed
+        );
+    }
+
+    function approveJoinRequest(uint256 requestId) public {
+        JoinRequest storage request = joinRequests[requestId];
+        require(projects[request.projectId].owner == msg.sender, "Only owner can approve");
+        require(!request.isProcessed, "Request already processed");
+    
+        projects[request.projectId].members.push(request.applicant);
+        projects[request.projectId].isMember[request.applicant] = true;
+    
+        request.isApproved = true;
+        request.isProcessed = true;
+    
+        emit MemberAdded(request.projectId, request.applicant);
+    }
+
+    function createProposal(uint256 projectId, string memory description, address target, ProposalType proposalType) public {
         require(projects[projectId].isMember[msg.sender], "Not a project Member");
         require(nftContract.balanceOf(msg.sender) > 0, "Must own a NFT to create proposal");
 
@@ -137,11 +175,37 @@ contract CampusDAO is ReentrancyGuard{
         prop.proposalId = proposalId;
         prop.projectId = projectId;
         prop.proposer = msg.sender;
+        prop.target = target;
         prop.description = description;
         prop.deadline = block.timestamp + 7 days;
         prop.proposalType = proposalType;
 
         emit ProposalCreated(proposalId, projectId, msg.sender, proposalType);
+    }
+
+    function getProposalInfo(uint256 proposalId) public view returns (
+        uint256 id,
+        uint256 projectId,
+        address proposer,
+        string memory description,
+        uint256 forVotes,
+        uint256 againstVotes,
+        bool isExecuted,
+        uint256 deadline,
+        ProposalType proposalType
+    ) {
+        Proposal storage prop = proposals[proposalId];
+        return (
+            prop.proposalId,
+            prop.projectId,
+            prop.proposer,
+            prop.description,
+            prop.forVotes,
+            prop.AgainstVotes,
+            prop.isExecuted,
+            prop.deadline,
+            prop.proposalType
+        );
     }
 
     function vote(uint256 proposalId, bool favour) public{
@@ -166,25 +230,36 @@ contract CampusDAO is ReentrancyGuard{
 
     function executeProposal(uint256 proposalId) public {
         Proposal storage prop = proposals[proposalId];
-        require(block.timestamp >= prop.deadline, "Ongoing Voting period");
+        require(block.timestamp >= prop.deadline, "Voting period ongoing");
         require(!prop.isExecuted, "Proposal already executed");
         require(prop.forVotes > prop.AgainstVotes, "Proposal rejected");
+        require(prop.forVotes > 0, "No votes cast");
 
         prop.isExecuted = true;
 
         if(prop.proposalType == ProposalType.ADD_MEMBER){
-            require(!projects[prop.projectId].isMember[msg.sender], "Already a member");
-            projects[prop.projectId].members.push(prop.proposer);
-            projects[prop.projectId].isMember[msg.sender] = true;
+            require(!projects[prop.projectId].isMember[prop.target], "Already a member");
+            require(projects[prop.projectId].members.length < projects[prop.projectId].maxMembers, "Project full");
             
-            emit MemberAdded(prop.projectId, prop.proposer);
+            projects[prop.projectId].members.push(prop.target);
+            projects[prop.projectId].isMember[prop.target] = true;
+            userProjects[prop.target].push(prop.projectId);
+        
+            emit MemberAdded(prop.projectId, prop.target);
+            
         } else if(prop.proposalType == ProposalType.REMOVE_MEMBER){
-            require(projects[prop.projectId].isMember[msg.sender], "Not a member");
+            require(projects[prop.projectId].isMember[prop.target], "Not a member");
+            require(prop.target != projects[prop.projectId].owner, "Cannot remove project owner");
+            
+            // Remove from isMember mapping
+            projects[prop.projectId].isMember[prop.target] = false;
+            
+            // Remove from members array
             address[] storage members = projects[prop.projectId].members;
             uint256 len = members.length;
 
             for(uint256 i = 0; i < len; i++){
-                if(members[i] == prop.proposer){
+                if(members[i] == prop.target){ // FIXED: was prop.proposer
                     for(uint256 j = i; j < len - 1; j++){
                         members[j] = members[j+1];
                     }
@@ -193,31 +268,32 @@ contract CampusDAO is ReentrancyGuard{
                 }
             }
 
-            emit MemberRemoved(prop.projectId, prop.proposer);
-        } //update project
+            emit MemberRemoved(prop.projectId, prop.target);
+        }
+        // TODO: Implement UPDATE_PROJECT and GOVERNANCE proposal types
     }
 
     function recordContributions(address contributor, uint256 projectId, uint256 noOfContributions) public {
-        require(projects[projectId].owner == msg.sender, "Only project owner can add contributions");
+        require(projects[projectId].owner == msg.sender, "Only project owner can record contributions");
         require(projects[projectId].isMember[contributor], "Not a project member");
+        require(noOfContributions > 0, "Contributions must be greater than 0");
 
-        userContributions[contributor].push(noOfContributions);
-
-        uint256 total = 0;
-        for (uint i = 0; i < userContributions[contributor].length; i++) {
-            total += userContributions[contributor][i];
-        }
+        userProjectContributions[contributor][projectId] += noOfContributions;
+        
+        
+        userTotalContributions[contributor] += noOfContributions;
+        uint256 totalContributions = userTotalContributions[contributor];
 
         if (nftContract.balanceOf(contributor) > 0) {
+            // Update existing NFT
             uint256[] memory tokens = nftContract.userTokens(contributor);
-            for (uint i = 0; i < userContributions[contributor].length; i++) {
-                total += userContributions[contributor][i];
-            }
-            nftContract.updateContributions(tokens[0], total);
+            nftContract.updateContributions(tokens[0], totalContributions);
         } else {
-            nftContract.mintNFT(contributor, total);
+            // Mint new NFT
+            nftContract.mintNFT(contributor, totalContributions);
         }
     }
+
 
 
     function getProjectInfo(uint256 projectId) public view returns (
@@ -228,13 +304,13 @@ contract CampusDAO is ReentrancyGuard{
         string memory techStack,
         string memory githubRepo,
         address owner,
-        address[] memory members,
         bool isActive,
         uint256 createdAt,
-        uint256 maxMembers 
-    ){
+        uint256 maxMembers,
+        uint256 currentMemberCount
+    ) {
         Project storage p = projects[projectId];
-        return(
+        return (
             p.projectId,
             p.title,
             p.description,
@@ -242,18 +318,52 @@ contract CampusDAO is ReentrancyGuard{
             p.techStack,
             p.githubRepo,
             p.owner,
-            p.members,
             p.isActive,
             p.createdAt,
-            p.maxMembers
+            p.maxMembers,
+            p.members.length
         );
+    }
+
+    function getAllProjects() public view returns (
+        uint256[] memory ids,
+        string[] memory titles,
+        address[] memory owners,
+        uint256[] memory memberCounts,
+        bool[] memory activeStatus
+    ) {
+        uint256 length = nextProjectId;
+
+        ids = new uint256[](length);
+        titles = new string[](length);
+        owners = new address[](length);
+        memberCounts = new uint256[](length);
+        activeStatus = new bool[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            Project storage p = projects[i];
+            ids[i] = p.projectId;
+            titles[i] = p.title;
+            owners[i] = p.owner;
+            memberCounts[i] = p.members.length;
+            activeStatus[i] = p.isActive;
+        }
+    }
+
+
+    function getProjectMembers(uint256 projectId) public view returns (address[] memory) {
+        return projects[projectId].members;
+    }
+
+    function getUserProjectContributions(address user, uint256 projectId) public view returns(uint256) {
+        return userProjectContributions[user][projectId];
     }
 
     function getUserProjects(address user) public view returns(uint256[] memory){
         return userProjects[user];
     }
 
-    function getUserContributions(address user) public view returns(uint256[] memory){
-        return userContributions[user];
-    }    
+    function getUserTotalContributions(address user) public view returns(uint256){
+        return userTotalContributions[user];
+    }
 }
